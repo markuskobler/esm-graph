@@ -1,2 +1,2 @@
 # esm-graph
-Graph and Transform JavaScript ES Modules
+Graph & Transform JavaScript ES Modules
