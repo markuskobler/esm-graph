@@ -1,7 +1,5 @@
 #![allow(dead_code, unused_imports)]
-#![feature(box_patterns)]
-#![feature(box_syntax)]
-#![feature(specialization)]
+#![feature(box_patterns, specialization)]
 
 // use neon::prelude::*;
 // use neon_serde;
@@ -22,14 +20,5 @@ impl Graph {
         println!("Scanning...");
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn standalone_require() {
-        assert_eq!(true, true);
     }
 }
