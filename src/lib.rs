@@ -1,6 +1,9 @@
-#![allow(dead_code, unused_imports)]
-#![feature(box_patterns, specialization)]
+#![allow(dead_code, unused_imports, bare_trait_objects)]
+#![feature(box_patterns, specialization)] // TODO: find a way to move off nightly
 
+use std::error::Error;
+
+mod error;
 mod parse;
 
 pub struct Graph {
@@ -8,13 +11,15 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub fn new() -> Graph {
-        Graph { entries: Vec::new() }
+    pub fn new(entries: Vec<String>) -> Graph {
+        Graph { entries }
     }
 
-    pub fn run(&self) -> Result<(), ()> {
-        println!("Scanning...");
+    pub fn run(&self) -> Result<Vec<String>, error::Error> {
+        println!("Scanning: {:?}", self.entries);
 
-        Ok(())
+        let files = vec![];
+
+        Ok(files)
     }
 }

@@ -1,0 +1,14 @@
+[package]
+name = "esm-graph-cli"
+version = "0.1.0"
+authors = ["markuskobler <markus@distinctive.co>"]
+edition = "2018"
+
+[[bin]]
+name = "esm-graph"
+path = "src/main.rs"
+doctest = false
+
+[dependencies]
+clap = { version = "2.33" }
+esm-graph = { path = "../" }
