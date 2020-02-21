@@ -1,10 +1,6 @@
 #![allow(dead_code, unused_imports)]
 #![feature(box_patterns, specialization)]
 
-// use neon::prelude::*;
-// use neon_serde;
-// use serde::Deserialize;
-
 mod parse;
 
 pub struct Graph {

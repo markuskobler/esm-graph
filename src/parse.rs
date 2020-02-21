@@ -3,31 +3,41 @@ use swc_ecma_ast::*;
 
 #[derive(Fold)]
 struct ImportVisitor {
-    entries: Vec<String>,
+    static_imports:  Vec<String>,
+    dynamic_imports: Vec<String>,
 }
 
 impl ImportVisitor {
     fn new() -> ImportVisitor {
-        ImportVisitor { entries: Vec::new() }
+        ImportVisitor {
+            static_imports:  Vec::new(),
+            dynamic_imports: Vec::new(),
+        }
     }
 }
 
 impl Visit<ImportDecl> for ImportVisitor {
     fn visit(&mut self, node: &ImportDecl) {
-        self.entries.push(node.src.value.to_string());
+        self.static_imports.push(node.src.value.to_string());
     }
 }
 
 impl Visit<CallExpr> for ImportVisitor {
     fn visit(&mut self, node: &CallExpr) {
+        // TODO: do we need to check for umd modules and require rewrites?
         match &node.callee {
-            ExprOrSuper::Expr(box Expr::Ident(Ident { sym, .. })) if sym == "require" => {
+            ExprOrSuper::Expr(box Expr::Ident(Ident { sym, .. })) if sym == "require" || sym == "import" => {
                 if let Some(ExprOrSpread {
                     expr: box Expr::Lit(Lit::Str(Str { value, .. })),
                     ..
                 }) = node.args.first()
                 {
-                    self.entries.push(value.to_string());
+                    if sym == "import" {
+                        // TODO: not sure if this is correct
+                        self.dynamic_imports.push(value.to_string());
+                    } else {
+                        self.static_imports.push(value.to_string());
+                    }
                 } else {
                     // TOOD: warn about require?
                 }
@@ -98,12 +108,20 @@ mod tests {
     fn parse_imports() {
         let source = r#"
 import 'url-search-params-polyfill';
-import React, /* example */ {useState} from "react";
-import { render } from 'react-dom';
+import React, /* example */ {useState, useContext} from "react";
+import { render as reactRender } from 'react-dom';
 import * as Sentry from "@sentry/browser";
-
 import {State} from "./app/state";
 import "../example.rs"
+
+const promise = import("./dynamic/import1.js");
+
+import("./dynamic/import2.js").then(module => {
+  console.log("Loaded", module);
+})
+.catch(err => {
+  console.log("Failed", err);
+});
 "#;
 
         let sourcemap: Arc<SourceMap> = Default::default();
@@ -112,13 +130,18 @@ import "../example.rs"
 
         let imports = parse(&*src).unwrap();
 
-        assert_eq!(imports.entries, vec![
+        assert_eq!(imports.static_imports, vec![
             "url-search-params-polyfill",
             "react",
             "react-dom",
             "@sentry/browser",
             "./app/state",
             "../example.rs"
+        ]);
+
+        assert_eq!(imports.dynamic_imports, vec![
+            "./dynamic/import1.js",
+            "./dynamic/import2.js",
         ]);
     }
 
@@ -146,7 +169,7 @@ console.log("Ignore comments");
 
         let imports = parse(&*src).unwrap();
 
-        assert_eq!(imports.entries, vec![
+        assert_eq!(imports.static_imports, vec![
             "url-search-params-polyfill",
             "react",
             "react-dom",
