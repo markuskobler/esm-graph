@@ -10,14 +10,16 @@ fn main() {
         exit(1);
     }
 
-    // TODO: handle error
-    match args.init().run() {
-        Ok(_) => {
-            // TODO: print files?
-        }
-        Err(err) => {
-            eprintln!("{}", err);
-            exit(1);
+    // TODO: improve handling
+    for entry in args.init().into_iter() {
+        match entry {
+            Ok(p) => {
+                eprintln!("{}", p);
+            }
+            Err(err) => {
+                eprintln!("Err: {}", err);
+                exit(1);
+            }
         }
     }
 }
@@ -44,6 +46,14 @@ impl Args {
     }
 
     fn init(self) -> Graph {
-        Graph::new(self.entries)
+        let mut graph = Graph::new();
+
+        if let Some(ref root) = self.root {
+            graph.root(root);
+        }
+
+        self.entries.iter().fold(&mut graph, Graph::add);
+
+        graph
     }
 }

@@ -1,5 +1,73 @@
-use swc_common::{Fold, Visit, VisitWith};
+use std::{fs::File, io::Read, path::PathBuf, result::Result, sync::Arc};
+use swc_common::{
+    errors::{ColorConfig, Handler},
+    input::SourceFileInput,
+    FileName, Fold, SourceMap, Visit, VisitWith,
+};
 use swc_ecma_ast::*;
+use swc_ecma_codegen::Handlers;
+use swc_ecma_parser::{
+    lexer::{Input, Lexer},
+    EsConfig, JscTarget, Session, Syntax,
+};
+
+use crate::error::Error;
+
+pub struct Parser {
+    sourcemap: Arc<SourceMap>,
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Parser {
+            sourcemap: Default::default(),
+        }
+    }
+}
+
+impl Parser {
+    pub fn parse(&self, p: PathBuf) -> Result<Vec<String>, Error> {
+        let mut file = File::open(&p)?;
+        let mut src = String::new();
+        file.read_to_string(&mut src)?;
+
+        let mut visitor = ImportVisitor::new();
+
+        swc_common::GLOBALS.set(&swc_common::Globals::new(), || {
+            let source = self.sourcemap.new_source_file(FileName::Real(p), src);
+
+            // TODO: configure
+            let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, None);
+
+            // TODO: configure syntax and target
+            let lexer = Lexer::<'_, SourceFileInput>::new(
+                Session { handler: &handler },
+                Syntax::Es(EsConfig {
+                    dynamic_import: true,
+                    ..Default::default()
+                }),
+                JscTarget::Es2017,
+                SourceFileInput::from(&*source),
+                None, // Comments
+            );
+
+            let mut parser = swc_ecma_parser::Parser::new_from(Session { handler: &handler }, lexer);
+
+            let module = parser
+                .parse_module()
+                .map_err(|mut err| {
+                    // TODO: improve error handling
+                    err.emit();
+                    ()
+                })
+                .expect("parser error"); // TODO: improve error handling
+
+            module.visit_with(&mut visitor);
+        });
+
+        Ok(visitor.static_imports)
+    }
+}
 
 #[derive(Fold)]
 struct ImportVisitor {
@@ -24,7 +92,7 @@ impl Visit<ImportDecl> for ImportVisitor {
 
 impl Visit<CallExpr> for ImportVisitor {
     fn visit(&mut self, node: &CallExpr) {
-        // TODO: do we need to check for umd modules and require rewrites?
+        // TODO: do we need to check for umd modules and require polyfils?
         match &node.callee {
             ExprOrSuper::Expr(box Expr::Ident(Ident { sym, .. })) if sym == "require" || sym == "import" => {
                 if let Some(ExprOrSpread {
@@ -48,6 +116,10 @@ impl Visit<CallExpr> for ImportVisitor {
         }
     }
 }
+
+struct Noop;
+
+impl Handlers for Noop {}
 
 #[cfg(test)]
 mod tests {
